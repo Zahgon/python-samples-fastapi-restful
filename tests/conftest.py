@@ -1,16 +1,12 @@
-import warnings
 from pathlib import Path
 from typing import Any, Generator
 
 import pytest
 from alembic import command
 from alembic.config import Config
-from fastapi.testclient import TestClient
+from flask.testing import FlaskClient
 from main import app
 from tests.player_fake import Player, nonexistent_player
-
-# Suppress the DeprecationWarning from httpx
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 ALEMBIC_CONFIG = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
 
@@ -22,17 +18,17 @@ def apply_migrations():
 
 
 @pytest.fixture(scope="function")
-def client():
+def client() -> Generator[FlaskClient, None, None]:
     """
-    Creates a test client for the FastAPI app.
+    Creates a test client for the Flask app.
 
-    This fixture provides a fresh instance of TestClient for each test function,
+    This fixture provides a fresh instance of FlaskClient for each test function,
     ensuring test isolation and a clean request context.
 
     Yields:
-        TestClient: A client instance for sending HTTP requests to the FastAPI app.
+        FlaskClient: A client instance for sending HTTP requests to the Flask app.
     """
-    with TestClient(app) as test_client:
+    with app.test_client() as test_client:
         yield test_client
 
 

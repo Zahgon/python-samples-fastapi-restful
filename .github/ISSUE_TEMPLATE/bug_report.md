@@ -28,7 +28,7 @@ What actually happened.
 ## Environment
 
 - **Python version:** (output of `python --version`)
-- **FastAPI version:** (from `pyproject.toml`)
+- **Flask version:** (from `pyproject.toml`)
 - **OS:** (e.g., macOS 14.0, Ubuntu 22.04, Windows 11)
 
 ## Additional Context

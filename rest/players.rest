@@ -1,4 +1,4 @@
-### RESTful API with Python 3 and FastAPI
+### RESTful API with Python 3 and Flask
 ### https://github.com/nanotaboada/python-samples-fastapi-restful
 ###
 ### Requires the REST Client extension for VS Code:

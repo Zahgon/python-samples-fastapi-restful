@@ -45,7 +45,7 @@ def test_request_get_health_response_status_ok(client):
     response = client.get("/health/")
     # Assert
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.get_json() == {"status": "ok"}
 
 
 # GET /players/ ----------------------------------------------------------------
@@ -83,7 +83,7 @@ def test_request_get_players_response_body_each_player_has_uuid(client):
     # Act
     response = client.get(PATH)
     # Assert
-    players = response.json()
+    players = response.get_json()
     assert all(
         _is_valid_uuid(player["id"]) for player in players
     )  # UUID v5 (migration-seeded)
@@ -119,7 +119,7 @@ def test_request_get_player_id_existing_response_body_player_match(client):
     # Act
     response = client.get(PATH + str(player_id))
     # Assert
-    player = response.json()
+    player = response.get_json()
     assert player["id"] == str(player_id)
 
 
@@ -153,7 +153,7 @@ def test_request_get_player_squadnumber_existing_response_body_player_match(clie
     # Act
     response = client.get(PATH + "squadnumber" + "/" + str(squad_number))
     # Assert
-    player = response.json()
+    player = response.get_json()
     assert player["squadNumber"] == squad_number
 
 
@@ -186,7 +186,8 @@ def test_request_post_player_body_existing_response_body_detail(client):
     response = client.post(PATH, json=player.__dict__)
     # Assert
     assert (
-        response.json()["detail"] == "A Player with this squad number already exists."
+        response.get_json()["detail"]
+        == "A Player with this squad number already exists."
     )
 
 
@@ -199,7 +200,7 @@ def test_request_post_player_body_nonexistent_response_status_created(client):
         response = client.post(PATH, json=player.__dict__)
         # Assert
         assert response.status_code == 201
-        body = response.json()
+        body = response.get_json()
         assert "id" in body
         assert UUID(body["id"]).version == 4  # UUID v4 (API-created)
     finally:
@@ -310,3 +311,105 @@ def test_request_post_player_body_nonexistent_response_header_location(client):
         )
     finally:
         client.delete(PATH + "squadnumber/" + str(player.squad_number))
+
+
+# Request validation ------------------------------------------------------------
+# These paths replace validation FastAPI performed before a handler was reached.
+
+
+def test_request_get_player_id_malformed_response_status_unprocessable(client):
+    """GET /players/{player_id} with a malformed UUID returns 422 Unprocessable Entity"""
+    # Act
+    response = client.get(PATH + "not-a-uuid")
+    # Assert
+    assert response.status_code == 422
+    detail = response.get_json()["detail"]
+    assert detail[0]["type"] == "uuid_parsing"
+    assert detail[0]["loc"] == ["path", "player_id"]
+
+
+def test_request_get_player_squadnumber_malformed_response_status_unprocessable(client):
+    """GET /players/squadnumber/{squad_number} with a non-integer returns 422 Unprocessable Entity"""
+    # Act
+    response = client.get(PATH + "squadnumber/abc")
+    # Assert
+    assert response.status_code == 422
+    detail = response.get_json()["detail"]
+    assert detail[0]["type"] == "int_parsing"
+    assert detail[0]["loc"] == ["path", "squad_number"]
+
+
+def test_request_post_player_body_absent_response_status_unprocessable(client):
+    """POST /players/ with no body returns 422 Unprocessable Entity"""
+    # Act
+    response = client.post(PATH, content_type="application/json")
+    # Assert
+    assert response.status_code == 422
+    detail = response.get_json()["detail"]
+    assert detail[0]["type"] == "missing"
+    assert detail[0]["loc"] == ["body"]
+
+
+def test_request_post_player_body_malformed_json_response_status_unprocessable(client):
+    """POST /players/ with unparsable JSON returns 422 Unprocessable Entity"""
+    # Act
+    response = client.post(PATH, data="{oops", content_type="application/json")
+    # Assert
+    assert response.status_code == 422
+    detail = response.get_json()["detail"]
+    assert detail[0]["type"] == "json_invalid"
+    assert detail[0]["msg"] == "JSON decode error"
+
+
+def test_request_post_player_body_not_json_media_type_response_status_unprocessable(
+    client,
+):
+    """POST /players/ with a non-JSON media type returns 422 Unprocessable Entity"""
+    # Act
+    response = client.post(PATH, data='{"firstName": "A"}', content_type="text/plain")
+    # Assert
+    assert response.status_code == 422
+    detail = response.get_json()["detail"]
+    assert detail[0]["loc"] == ["body"]
+
+
+def test_request_post_player_body_missing_fields_response_body_locations(client):
+    """POST /players/ reports each missing required field under the body location"""
+    # Act
+    response = client.post(PATH, json={})
+    # Assert
+    detail = response.get_json()["detail"]
+    locations = {tuple(error["loc"]) for error in detail}
+    assert ("body", "firstName") in locations
+    assert ("body", "squadNumber") in locations
+
+
+def test_request_delete_player_squadnumber_malformed_response_status_unprocessable(
+    client,
+):
+    """DELETE /players/squadnumber/{squad_number} with a non-integer returns 422 Unprocessable Entity"""
+    # Act
+    response = client.delete(PATH + "squadnumber/abc")
+    # Assert
+    assert response.status_code == 422
+
+
+def test_request_get_unknown_route_response_status_not_found(client):
+    """GET an unmapped path returns 404 Not Found as JSON"""
+    # Act
+    response = client.get("/nope")
+    # Assert
+    assert response.status_code == 404
+    assert response.get_json()["detail"] == "Not Found"
+
+
+def test_request_patch_player_squadnumber_response_status_method_not_allowed(client):
+    """PATCH /players/squadnumber/{squad_number} returns 405 Method Not Allowed as JSON"""
+    # Arrange
+    squad_number = existing_player().squad_number
+    # Act
+    response = client.patch(PATH + "squadnumber/" + str(squad_number))
+    # Assert
+    assert response.status_code == 405
+    assert response.get_json()["detail"] == "Method Not Allowed"
+    assert "Allow" in response.headers

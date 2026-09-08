@@ -1,13 +1,15 @@
 [project]
-name = "python-samples-fastapi-restful"
+name = "python-samples-flask-restful"
 version = "1.0.0"
-description = "RESTful API proof of concept built with Python 3.13 and FastAPI"
+description = "RESTful API proof of concept built with Python 3.13 and Flask"
 readme = "README.md"
 requires-python = ">=3.13.3"
 authors = [{name = "nanotaboada", email = "hello@example.com"}]
 dependencies = [
-    "fastapi[standard]==0.140.7",
+    "Flask==3.1.3",
+    "pydantic==2.13.5",
     "SQLAlchemy==2.0.52",
+    "greenlet==3.3.2",
     "aiosqlite==0.22.1",
     "aiocache==0.12.3",
     "alembic==1.19.1",

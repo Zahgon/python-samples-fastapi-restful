@@ -1,7 +1,7 @@
 services:
   api:
-    image: python-samples-fastapi-restful
-    container_name: fastapi-app
+    image: python-samples-flask-restful
+    container_name: flask-app
     build:
       context: .
       dockerfile: Dockerfile
@@ -17,4 +17,4 @@ services:
 
 volumes:
   storage:
-    name: python-samples-fastapi-restful_storage
+    name: python-samples-flask-restful_storage

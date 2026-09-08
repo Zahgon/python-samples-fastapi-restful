@@ -2,15 +2,15 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Launch FastAPI (Debug)",
+      "name": "Python: Launch Flask (Debug)",
       "type": "debugpy",
       "request": "launch",
-      "module": "uvicorn",
-      "args": ["main:app", "--reload", "--port", "9000"],
+      "module": "flask",
+      "args": ["--app", "main:app", "run", "--debug", "--port", "9000"],
       "jinja": true,
       "serverReadyAction": {
         "action": "openExternally",
-        "pattern": "Uvicorn running on .*:(\\d+)",
+        "pattern": "Running on .*:(\\d+)",
         "uriFormat": "http://localhost:%s/docs"
       }
     }

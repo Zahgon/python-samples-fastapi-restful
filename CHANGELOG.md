@@ -44,12 +44,61 @@ This project uses famous football coaches as release codenames, following an A-Z
 
 ### Added
 
+- `async_runner.py`: persistent asyncio event loop, on a dedicated daemon
+  thread, that runs the async service, database and cache layers from Flask's
+  synchronous (WSGI) request model. A single long-lived loop keeps SQLAlchemy's
+  pooled `aiosqlite` connections and `aiocache`'s `loop.call_later()` TTL
+  handles valid across requests
+- `routes/http_error.py`: JSON error rendering (`{"detail": ...}`) for aborted
+  requests and for Pydantic validation failures, preserving the error contract
+  FastAPI produced, including the `Allow` header on `405 Method Not Allowed`
+  and the distinct `missing`, `json_invalid` and per-field `422` payloads
+- `tests/test_docs.py`: pins the hand-assembled OpenAPI document to the URL map,
+  failing if a route is added without being documented or vice versa
+- `routes/docs_route.py`: `GET /openapi.json`, `GET /docs` (Swagger UI) and
+  `GET /redoc`, replacing the documentation endpoints FastAPI provided out of
+  the box; component schemas are generated from the Pydantic models
+- ADR-0014: Flask as Web Framework (supersedes ADR-0008)
 - ADR-0011: Use Coach-Themed Semantic Versioning
 - ADR-0012: Adopt AI-Assisted Development Workflow
 - ADR-0013: Adopt Spec-Driven Development (SDD)
 
 ### Changed
 
+- Migrated the web framework from FastAPI/Uvicorn (ASGI) to Flask/Gunicorn
+  (WSGI). Endpoints, HTTP status codes, response bodies, `X-Cache` and
+  `Location` headers are unchanged, as are the `422 Unprocessable Entity`
+  payloads for path parameters and request bodies; verified request by request
+  against the previous implementation. Framework-inherent differences that
+  remain are listed in ADR-0014: `HEAD`/`OPTIONS` are now answered instead of
+  rejected, the `Allow` header on `405` lists every accepted method, `/health/`
+  is served without a redirect, `/players` redirects with `308` instead of
+  `307`, `/players/squadnumber/` returns `404` instead of `422`, response
+  bodies end with a newline, and a server error returns a JSON body
+- `main.py`: `FastAPI(...)` app plus `include_router()` replaced by
+  `create_app()` registering Flask blueprints, the JSON error handlers and the
+  database session teardown; `sort_keys`/`ensure_ascii` disabled to keep the
+  previous JSON rendering; lifespan startup log kept
+- `routes/player_route.py`: `APIRouter` replaced by a `Blueprint`; view
+  functions are now synchronous and reach the unchanged async services through
+  `run_async()`; request bodies are validated with
+  `PlayerRequestModel.model_validate()` and path parameters with
+  `TypeAdapter`, both still yielding `422 Unprocessable Entity`; responses are
+  serialized with `PlayerResponseModel.model_dump(by_alias=True)`
+- `routes/health_route.py`: `APIRouter` replaced by a `Blueprint`;
+  `strict_slashes=False` accepts both `/health` and `/health/`
+- `databases/player_database.py`: `generate_async_session()` is no longer an
+  ASGI dependency but a request-scoped provider backed by Flask's `g`, closed
+  by the new `close_async_session()` teardown callback
+- `gunicorn.conf.py`: `uvicorn.workers.UvicornWorker` replaced by the default
+  synchronous WSGI worker
+- `tests/conftest.py`, `tests/test_main.py`: Starlette `TestClient` replaced by
+  the Flask test client; `response.json()` replaced by `response.get_json()`
+- `pyproject.toml`, `uv.lock`: `fastapi[standard]` replaced by `Flask`, with
+  `pydantic` and `greenlet` now declared explicitly instead of being pulled in
+  transitively
+- `Dockerfile`, `compose.yaml`, `.vscode/launch.json`, `.github/dependabot.yml`,
+  `.coderabbit.yaml`, `README.md`, `CLAUDE.md`: framework references updated
 - `CLAUDE.md`: fix stale `docker-compose.yml` reference to `compose.yaml`; add
   `rest/` and `gunicorn.conf.py` to Structure section; condense "Creating
   Issues" templates from 18 lines to 4 lines; remove redundant commit format

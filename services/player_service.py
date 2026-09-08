@@ -25,8 +25,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from models.player_model import PlayerRequestModel
 from schemas.player_schema import Player
 
-# https://github.com/encode/uvicorn/issues/562
-logger = logging.getLogger("uvicorn.error")
+# https://docs.gunicorn.org/en/stable/settings.html#logger-class
+logger = logging.getLogger("gunicorn.error")
 
 # Create -----------------------------------------------------------------------
 

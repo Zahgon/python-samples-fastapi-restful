@@ -34,8 +34,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Add metadata labels
-LABEL org.opencontainers.image.title="🧪 RESTful API with Python 3 and FastAPI"
-LABEL org.opencontainers.image.description="Proof of Concept for a RESTful API made with Python 3 and FastAPI"
+LABEL org.opencontainers.image.title="🧪 RESTful API with Python 3 and Flask"
+LABEL org.opencontainers.image.description="Proof of Concept for a RESTful API made with Python 3 and Flask"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/nanotaboada/python-samples-fastapi-restful"
 
@@ -51,6 +51,7 @@ RUN pip install --no-cache-dir --no-index --find-links /app/wheelhouse /app/whee
 
 # Copy application source code
 COPY main.py            ./
+COPY async_runner.py    ./
 COPY gunicorn.conf.py   ./
 COPY alembic.ini        ./
 COPY alembic/           ./alembic/
@@ -67,13 +68,13 @@ COPY --chmod=755        scripts/healthcheck.sh      ./healthcheck.sh
 
 # Add non-root user and make volume mount point writable
 # Avoids running the container as root (see: https://rules.sonarsource.com/docker/RSPEC-6504/)
-RUN adduser --system --disabled-password --group fastapi && \
+RUN adduser --system --disabled-password --group flask && \
     mkdir -p /storage && \
-    chown fastapi:fastapi /storage
+    chown flask:flask /storage
 
 ENV PYTHONUNBUFFERED=1
 
-USER fastapi
+USER flask
 
 EXPOSE 9000
 

@@ -7,9 +7,9 @@ updates:
     schedule:
       interval: "daily"
     groups:
-      fastapi:
+      flask:
         patterns:
-          - "fastapi*"
+          - "flask*"
       flake8:
         patterns:
           - "flake8*"

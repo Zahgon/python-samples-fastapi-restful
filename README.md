@@ -1,4 +1,4 @@
-# 🧪 RESTful API with Python 3 and FastAPI
+# 🧪 RESTful API with Python 3 and Flask
 
 [![Python CI](https://github.com/nanotaboada/python-samples-fastapi-restful/actions/workflows/python-ci.yml/badge.svg)](https://github.com/nanotaboada/python-samples-fastapi-restful/actions/workflows/python-ci.yml)
 [![Python CD](https://github.com/nanotaboada/python-samples-fastapi-restful/actions/workflows/python-cd.yml/badge.svg)](https://github.com/nanotaboada/python-samples-fastapi-restful/actions/workflows/python-cd.yml)
@@ -13,12 +13,12 @@
 ![Claude](https://img.shields.io/badge/Claude-contributing-D97757?logo=claude&logoColor=white&labelColor=181818)
 ![CodeRabbit](https://img.shields.io/badge/CodeRabbit-reviewing-FF570A?logo=coderabbit&logoColor=white&labelColor=181818)
 
-Proof of Concept for a RESTful Web Service built with **FastAPI** and **Python 3.13**. This project demonstrates best practices for building a layered, testable, and maintainable API implementing CRUD operations for a Players resource (Argentina 2022 FIFA World Cup squad).
+Proof of Concept for a RESTful Web Service built with **Flask** and **Python 3.13**. This project demonstrates best practices for building a layered, testable, and maintainable API implementing CRUD operations for a Players resource (Argentina 2022 FIFA World Cup squad).
 
 ## Features
 
-- 🏗️ **Async Architecture** - Async/await throughout with SQLAlchemy 2.0 and dependency injection via FastAPI's `Depends()`
-- 📚 **Interactive Documentation** - Auto-generated Swagger UI with VS Code and JetBrains REST Client support
+- 🏗️ **Async Data Layer** - Async/await services and SQLAlchemy 2.0, driven from Flask's synchronous request model through a persistent event loop
+- 📚 **Interactive Documentation** - Swagger UI and ReDoc over a generated OpenAPI document, with VS Code and JetBrains REST Client support
 - ⚡ **Performance Caching** - In-memory caching with aiocache and async SQLite operations
 - ✅ **Input Validation** - Pydantic models enforce request/response schemas with automatic error responses
 - 🐳 **Containerized Deployment** - Production-ready Docker setup with migration-based database initialization
@@ -29,18 +29,18 @@ Proof of Concept for a RESTful Web Service built with **FastAPI** and **Python 3
 | Category | Technology |
 | -------- | ---------- |
 | **Language** | [Python 3.13](https://www.python.org/) |
-| **Web Framework** | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/) |
+| **Web Framework** | [Flask](https://flask.palletsprojects.com/) + [Gunicorn](https://gunicorn.org/) |
 | **ORM** | [SQLAlchemy 2.0 (async)](https://docs.sqlalchemy.org/en/20/) + [aiosqlite](https://github.com/omnilib/aiosqlite) |
 | **Database** | [SQLite](https://www.sqlite.org/) |
 | **Validation** | [Pydantic](https://docs.pydantic.dev/) |
 | **Caching** | [aiocache](https://github.com/aio-libs/aiocache) (in-memory, 10-minute TTL) |
-| **Testing** | [pytest](https://pytest.org/) + [pytest-cov](https://github.com/pytest-dev/pytest-cov) + [httpx](https://www.python-httpx.org/) |
+| **Testing** | [pytest](https://pytest.org/) + [pytest-cov](https://github.com/pytest-dev/pytest-cov) + [Flask test client](https://flask.palletsprojects.com/en/stable/testing/) |
 | **Linting / Formatting** | [Flake8](https://flake8.pycqa.org/) + [Black](https://black.readthedocs.io/) |
 | **Containerization** | [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/) |
 
 ## Architecture
 
-Layered architecture with dependency injection via FastAPI's `Depends()` mechanism and Pydantic for request/response validation.
+Layered architecture with a request-scoped database session provided through Flask's application context and Pydantic for request/response validation.
 
 ```mermaid
 %%{init: {
@@ -58,7 +58,7 @@ graph RL
 
     main[main]
     routes[routes]
-    fastapi[FastAPI]
+    flask[Flask]
     aiocache[aiocache]
 
     services[services]
@@ -69,14 +69,15 @@ graph RL
     schemas[schemas]
 
     databases[databases]
+    async_runner[async_runner]
     sqlalchemy[SQLAlchemy]
 
     %% Strong dependencies
 
     routes --> main
-    fastapi --> main
+    flask --> main
 
-    fastapi --> routes
+    flask --> routes
     aiocache --> routes
     services --> routes
     models --> routes
@@ -90,6 +91,8 @@ graph RL
     databases --> schemas
     sqlalchemy --> schemas
     sqlalchemy --> databases
+    async_runner --> routes
+    async_runner --> databases
 
     %% Soft dependencies
 
@@ -101,8 +104,8 @@ graph RL
     classDef deps fill:#ffcccc,stroke:#ff8f8f,stroke-width:2px,color:#555,font-family:monospace;
     classDef test fill:#ccffcc,stroke:#53c45e,stroke-width:2px,color:#555,font-family:monospace;
 
-    class main,routes,services,schemas,databases,models core
-    class fastapi,sqlalchemy,pydantic,aiocache deps
+    class main,routes,services,schemas,databases,models,async_runner core
+    class flask,sqlalchemy,pydantic,aiocache deps
     class tests test
 ```
 
@@ -175,7 +178,7 @@ uv pip install --group dev
 # docker compose down -v)
 uv run alembic upgrade head
 
-uv run uvicorn main:app --reload --port 9000
+uv run flask --app main:app run --debug --port 9000
 ```
 
 ### Access
@@ -184,6 +187,8 @@ Once the application is running, you can access:
 
 - **API Server**: `http://localhost:9000`
 - **Swagger UI**: `http://localhost:9000/docs`
+- **ReDoc**: `http://localhost:9000/redoc`
+- **OpenAPI document**: `http://localhost:9000/openapi.json`
 - **Health Check**: `http://localhost:9000/health`
 
 ## Containers
@@ -274,7 +279,7 @@ uv run pytest --cov=./ --cov-report=term
 
 | Command | Description |
 | ------- | ----------- |
-| `uv run uvicorn main:app --reload --port 9000` | Start development server |
+| `uv run flask --app main:app run --debug --port 9000` | Start development server |
 | `uv pip install --group dev` | Install all dependencies |
 | `uv run pytest` | Run all tests |
 | `uv run pytest --cov=./ --cov-report=term` | Run tests with coverage |

@@ -2,7 +2,7 @@
 # https://docs.coderabbit.ai/getting-started/configure-coderabbit
 
 # CodeRabbit Configuration
-# Optimized for Python 3.13 / FastAPI RESTful API project
+# Optimized for Python 3.13 / Flask RESTful API project
 
 language: en-US
 early_access: true
@@ -41,7 +41,7 @@ reviews:
     - path: "routes/**/*.py"
       instructions: |
         - Routes should be thin - delegate to services
-        - Verify proper HTTP status codes and FastAPI response models
+        - Verify proper HTTP status codes and Pydantic response models
         - Check that dependency injection is used (Depends(generate_async_session))
         - Ensure Pydantic models are used for request/response validation
         - Validate async route handlers (async def)
@@ -86,7 +86,7 @@ reviews:
 
     - path: "main.py"
       instructions: |
-        - Verify FastAPI app initialization with proper settings
+        - Verify Flask app initialization with proper settings
         - Check lifespan handler for database initialization
         - Ensure router registration is correct
         - Validate CORS and middleware configuration

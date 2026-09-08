@@ -1,9 +1,9 @@
 """
 Gunicorn configuration for production deployment.
 
-Uses UvicornWorker to run the FastAPI ASGI app. The on_starting hook runs
-Alembic migrations once in the master process before any workers are forked,
-ensuring a single, race-free initialization step.
+Uses the default synchronous worker to run the Flask WSGI app. The on_starting
+hook runs Alembic migrations once in the master process before any workers are
+forked, ensuring a single, race-free initialization step.
 """
 
 import multiprocessing
@@ -16,7 +16,7 @@ from alembic.config import Config
 
 bind: str = "0.0.0.0:9000"
 workers: int = int(os.getenv("WEB_CONCURRENCY", multiprocessing.cpu_count() * 2 + 1))
-worker_class: str = "uvicorn.workers.UvicornWorker"
+worker_class: str = "sync"
 
 
 def on_starting(_server: Any) -> None:

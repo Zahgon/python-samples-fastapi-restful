@@ -5,7 +5,11 @@ Database setup and session management for async SQLAlchemy.
   variable (SQLite default, PostgreSQL compatible).
 - Creates an async sessionmaker for ORM operations.
 - Defines the declarative base class for model definitions.
-- Provides an async generator dependency to yield database sessions.
+- Provides a request-scoped async session and its teardown callback.
+
+The session is stored on Flask's application context globals (`g`), which gives
+it the same lifetime the FastAPI `Depends()` dependency used to have: one
+session per request, closed once the response has been produced.
 
 Environment variables:
     DATABASE_URL: Full async database URL. Defaults to SQLite:
@@ -15,9 +19,14 @@ Environment variables:
 
 import logging
 import os
-from typing import AsyncGenerator
+from typing import Optional
+from flask import g
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
+
+from async_runner import run_async
+
+ASYNC_SESSION_KEY = "async_session"
 
 
 def get_database_url() -> str:
@@ -39,7 +48,8 @@ _connect_args = (
     {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 )
 
-logger = logging.getLogger("uvicorn")
+# https://docs.gunicorn.org/en/stable/settings.html#logger-class
+logger = logging.getLogger("gunicorn.error")
 logging.getLogger("sqlalchemy.engine.Engine").handlers = logger.handlers
 
 async_engine = create_async_engine(DATABASE_URL, connect_args=_connect_args, echo=True)
@@ -51,12 +61,31 @@ async_sessionmaker = sessionmaker(
 Base = declarative_base()
 
 
-async def generate_async_session() -> AsyncGenerator[AsyncSession, None]:
+def generate_async_session() -> AsyncSession:
     """
-    Dependency function to yield an async SQLAlchemy ORM session.
+    Provides the async SQLAlchemy ORM session bound to the current request.
 
-    Yields:
+    The session is created on first use within a request and reused for every
+    subsequent call, so all operations of a single request share one session.
+
+    Returns:
         AsyncSession: An instance of an async SQLAlchemy ORM session.
     """
-    async with async_sessionmaker() as async_session:
-        yield async_session
+    if ASYNC_SESSION_KEY not in g:
+        setattr(g, ASYNC_SESSION_KEY, async_sessionmaker())
+    return getattr(g, ASYNC_SESSION_KEY)
+
+
+def close_async_session(_exception: Optional[BaseException] = None) -> None:
+    """
+    Closes the request-scoped async session, if one was created.
+
+    Registered as a Flask `teardown_appcontext` callback, mirroring the teardown
+    of the FastAPI dependency it replaces.
+
+    Args:
+        _exception (Optional[BaseException]): Unhandled exception, if any.
+    """
+    async_session: Optional[AsyncSession] = g.pop(ASYNC_SESSION_KEY, None)
+    if async_session is not None:
+        run_async(async_session.close())

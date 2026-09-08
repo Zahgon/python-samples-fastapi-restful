@@ -6,30 +6,31 @@
 
 ## Overview
 
-REST API for managing football players built with Python and FastAPI. Implements
+REST API for managing football players built with Python and Flask. Implements
 async CRUD operations with SQLAlchemy 2.0 (async), SQLite, Pydantic validation,
 and in-memory caching.
 
 ## Tech Stack
 
 - **Language**: Python 3.13
-- **Framework**: FastAPI + Uvicorn
+- **Framework**: Flask + Gunicorn
 - **ORM**: SQLAlchemy 2.0 (async) + aiosqlite
 - **Database**: SQLite (local/test), PostgreSQL-compatible
 - **Migrations**: Alembic (async, `render_as_batch=True`)
 - **Validation**: Pydantic
 - **Caching**: aiocache (in-memory, 10-minute TTL)
-- **Testing**: pytest + pytest-cov + httpx
+- **Testing**: pytest + pytest-cov + Flask test client
 - **Linting/Formatting**: Flake8 + Black
 - **Containerization**: Docker
 
 ## Structure
 
 ```text
-main.py         — application entry point: FastAPI setup, router registration
+main.py         — application entry point: Flask setup, blueprint registration
+async_runner.py — persistent event loop that runs the async layers under WSGI
 alembic.ini     — Alembic configuration (sqlalchemy.url set dynamically)
 alembic/        — Alembic migration environment and version scripts
-routes/         — HTTP route definitions, caching + dependency injection [HTTP layer]
+routes/         — HTTP route definitions, caching, JSON errors, OpenAPI  [HTTP layer]
 services/       — async business logic                                   [business layer]
 schemas/        — SQLAlchemy ORM models (database schema)                [data layer]
 databases/      — async SQLAlchemy session setup + get_database_url()
@@ -48,7 +49,8 @@ concerns only; business logic belongs in services. Never skip a layer.
 
 - **Naming**: snake_case (files, functions, variables), PascalCase (classes)
 - **Type hints**: Required everywhere — functions, variables, return types
-- **Async**: All routes and service functions must be `async def`; use
+- **Async**: All service functions must be `async def`; Flask view functions
+  are `def` and reach them through `run_async()` from `async_runner`; use
   `AsyncSession` (never `Session`); use `aiosqlite` (never `sqlite3`); use
   SQLAlchemy 2.0 `select()` (never `session.query()`)
 - **API contract**: camelCase JSON via Pydantic `alias_generator=to_camel`;
@@ -74,7 +76,7 @@ concerns only; business logic belongs in services. Never skip a layer.
 - **Line length**: 88; complexity ≤ 10
 - **Import order**: stdlib → third-party → local
 - **Tests**: integration tests against the real SQLite DB (seeded via
-  Alembic migrations) via `TestClient` — no mocking. Naming pattern
+  Alembic migrations) via the Flask test client — no mocking. Naming pattern
   `test_request_{method}_{resource}_{context}_response_{outcome}`;
   docstrings single-line, concise; `tests/player_fake.py` for test data;
   `tests/conftest.py` provides a `function`-scoped `client` fixture for
@@ -100,7 +102,7 @@ uv pip install --group dev
 uv run alembic upgrade head
 
 # Run application
-uv run uvicorn main:app --reload --port 9000       # http://localhost:9000/docs
+uv run flask --app main:app run --debug --port 9000  # http://localhost:9000/docs
 
 # Run tests
 uv run pytest                                      # run tests
@@ -157,6 +159,7 @@ Never suggest a release tag with a coach name not on this list.
 ### Proceed freely
 
 - Add/modify routes in `routes/player_route.py` and `routes/health_route.py`
+  (keep `routes/docs_route.py` in sync with any endpoint change)
 - Add/modify service methods in `services/player_service.py`
 - Add/modify Pydantic models in `models/player_model.py` (field additions or
   docstring updates that don't change the API contract)
@@ -199,8 +202,9 @@ Spec-Driven Development (SDD): discuss in Plan mode first, create a GitHub Issue
 
 **Add an endpoint**: Add Pydantic model in `models/` if the request/response
 shape is new → add async service method in `services/` with error handling and
-rollback → add route in `routes/` with `Depends(generate_async_session)` →
-add tests following the naming pattern → run pre-commit checks.
+rollback → add route in `routes/` calling `generate_async_session()` and
+`run_async()` → declare it in `routes/docs_route.py` → add tests following the
+naming pattern → run pre-commit checks.
 
 **Modify schema**: Update `schemas/player_schema.py` → run
 `uv run alembic revision --autogenerate -m "description"` to generate a

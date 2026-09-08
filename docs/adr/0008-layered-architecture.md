@@ -4,7 +4,9 @@ Date: 2026-04-02
 
 ## Status
 
-Accepted
+Superseded by [ADR-0014](0014-flask-as-web-framework.md).
+The layering is retained; the web framework and the mechanism that
+supplies the database session changed.
 
 ## Context
 
